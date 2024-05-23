@@ -1,0 +1,20 @@
+input {
+    width: 100%;
+    padding: 8px;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+  }
+  
+  input.disabled {
+    background-color: #f0f0f0;
+  }
+  
+  input:focus {
+    border-color: #007bff;
+    outline: none;
+    border: 2px solid #007bff;
+    border-radius: 8px;
+    background-color: #ffffff;
+  }
+  

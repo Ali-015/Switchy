@@ -227,7 +227,15 @@
       </svg>
       <h1>Hello, {{ title }}</h1>
       <p>Congratulations! Your app is running. 🎉</p>
+      <shortcut-input
+      [(ngModel)]="data"
+      [modifiers]="modifiers"
+      (ngModelChange)="updateData($event)"
+      >
+      </shortcut-input>
+      <p>Shortcut: {{ data }}</p>
     </div>
+
     <div class="divider" role="separator" aria-label="Divider"></div>
     <div class="right-side">
       <div class="pill-group">
