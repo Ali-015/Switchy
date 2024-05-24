@@ -5,12 +5,13 @@ import {
   forwardRef,
   HostListener,
   Input,
+  OnDestroy,
   OnInit,
-  Renderer2,
+  ViewChild
 } from '@angular/core';
 import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms';
-import { fromEvent, merge } from 'rxjs';
-import { filter, map, tap } from 'rxjs/operators';
+import { fromEvent, merge, Subject } from 'rxjs';
+import { filter, map, takeUntil, tap } from 'rxjs/operators';
 
 @Component({
   selector: 'shortcut-input',
@@ -26,19 +27,24 @@ import { filter, map, tap } from 'rxjs/operators';
     },
   ],
 })
-export class ShortcutInputComponent implements ControlValueAccessor, OnInit {
+export class ShortcutInputComponent implements ControlValueAccessor, OnInit, OnDestroy {
   @Input() modifiers: string[] = [];
   @Input() placeholder: string = 'Press Shortcut';
+  @ViewChild('inputElement', { static: true }) inputElement!: ElementRef<HTMLInputElement>;
 
   value: string = '';
   focused: boolean = false;
   onTouched: () => void = () => {};
   onChange: (value: string) => void = () => {};
-
-  constructor(private renderer: Renderer2, private elementRef: ElementRef) {}
+  private destroy$ = new Subject<void>();
 
   ngOnInit() {
     this.setupListeners();
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   writeValue(value: string): void {
@@ -55,11 +61,10 @@ export class ShortcutInputComponent implements ControlValueAccessor, OnInit {
   }
 
   setDisabledState?(isDisabled: boolean): void {
-    const input = this.elementRef.nativeElement.querySelector('input');
     if (isDisabled) {
-      this.renderer.addClass(input, 'disabled');
+      this.inputElement.nativeElement.classList.add('disabled');
     } else {
-      this.renderer.removeClass(input, 'disabled');
+      this.inputElement.nativeElement.classList.remove('disabled');
     }
   }
 
@@ -81,17 +86,15 @@ export class ShortcutInputComponent implements ControlValueAccessor, OnInit {
   private setupListeners() {
     const keydown$ = fromEvent<KeyboardEvent>(window, 'keydown');
     const keyup$ = fromEvent<KeyboardEvent>(window, 'keyup');
-    const input$ = fromEvent<InputEvent>(
-      this.elementRef.nativeElement.querySelector('input'),
-      'input'
-    );
+    const input$ = fromEvent<InputEvent>(this.inputElement.nativeElement, 'input');
 
     keydown$
       .pipe(
         tap((event) => event.preventDefault()),
         filter(() => this.focused),
         map((event) => this.mapEventToShortcut(event)),
-        filter((shortcut) => this.isValidShortcut(shortcut))
+        filter((shortcut) => this.isValidShortcut(shortcut)),
+        takeUntil(this.destroy$)
       )
       .subscribe((shortcut) => {
         this.value = shortcut;
@@ -113,18 +116,22 @@ export class ShortcutInputComponent implements ControlValueAccessor, OnInit {
                 : event;
             this.updatePlaceholder(shortcut);
           }
-        })
+        }),
+        takeUntil(this.destroy$)
       )
       .subscribe();
 
-      keyup$.pipe(
+    keyup$
+      .pipe(
         filter(() => this.focused && !this.isValidShortcut(this.value)),
         tap(() => {
           this.value = '';
           this.updatePlaceholder('Press Shortcut');
           this.onChange(this.value);
-        })
-      ).subscribe();
+        }),
+        takeUntil(this.destroy$)
+      )
+      .subscribe();
   }
 
   private mapEventToShortcut(event: KeyboardEvent): string {
